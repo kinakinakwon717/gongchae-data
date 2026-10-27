@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -35,10 +36,20 @@ REGION_ALIAS = {
 
 
 def get(url, params):
-    req = urllib.request.Request(url + "?" + urllib.parse.urlencode(params),
-                                 headers={"User-Agent": "gongchae-bot"})
-    with urllib.request.urlopen(req, timeout=40) as res:
-        return res.read().decode("utf-8", errors="replace")
+    """https 로 먼저, 안 되면 http 로. 각각 두 번씩 시도합니다."""
+    q = "?" + urllib.parse.urlencode(params)
+    urls = [url, url.replace("https://", "http://", 1)] if url.startswith("https://") else [url]
+    last = None
+    for u in urls:
+        for _ in range(2):
+            try:
+                req = urllib.request.Request(u + q, headers={"User-Agent": "Mozilla/5.0 gongchae-bot"})
+                with urllib.request.urlopen(req, timeout=90) as res:
+                    return res.read().decode("utf-8", errors="replace")
+            except Exception as e:
+                last = e
+                time.sleep(5)
+    raise RuntimeError(f"서버 응답 없음 ({u.split('/')[2]}): {last}")
 
 
 def pick(rec, *names):
